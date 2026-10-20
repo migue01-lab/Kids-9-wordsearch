@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vacation Word Search</title>
+    <style>
+        body { font-family: 'Comic Sans MS', cursive, sans-serif; background-color: #e8f5e9; text-align: center; color: #333; }
+        h1 { color: #2e7d32; margin-top: 10px; }
+        .instructions { font-size: 18px; color: #1b5e20; margin-bottom: 5px; }
+        .sub-instructions { font-size: 14px; color: #4CAF50; margin-bottom: 15px; }
+        .game-container { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        #grid { display: grid; grid-template-columns: repeat(12, 30px); grid-template-rows: repeat(12, 30px); gap: 2px; user-select: none; }
+        .cell { width: 30px; height: 30px; background-color: #ffffff; border: 2px solid #a5d6a7; display: flex; align-items: center; justify-content: center; font-size: 16px; font-weight: bold; cursor: pointer; border-radius: 4px; }
+        .cell.selected { background-color: #fff9c4; }
+        .cell.found { background-color: #c8e6c9; color: #1b5e20; }
+        .cell.revealed { background-color: #b3e5fc; color: #0288d1; }
+        .word-list { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; max-width: 500px; }
+        .word { padding: 5px 12px; background-color: #ffffff; border-radius: 15px; font-size: 14px; font-weight: bold; color: #388e3c; border: 2px solid #c8e6c9; box-shadow: 1px 1px 3px rgba(0,0,0,0.05); }
+        .word.found { text-decoration: line-through; color: #9e9e9e; }
+        #showAnswersBtn { margin-top: 15px; padding: 10px 20px; font-size: 16px; font-weight: bold; color: white; background-color: #0288d1; border: none; border-radius: 20px; cursor: pointer; box-shadow: 2px 2px 5px rgba(0,0,0,0.2); }
+        #showAnswersBtn:hover { background-color: #03a9f4; }
+    </style>
+</head>
+<body>
+    <h1>Vacation Word Search</h1>
+    <div class="instructions">Find these words!</div>
+    <div class="sub-instructions">Look down, across, and diagonally.</div>
+    <div class="game-container">
+        <div id="grid"></div>
+        <div class="word-list" id="wordList"></div>
+        <button id="showAnswersBtn" onclick="showAnswers()">Show Answers</button>
+    </div>
+    <script>
+        const words = ["BIG", "SMALL", "TALL", "SHORT", "CLEAN", "DIRTY", "BEAUTIFUL", "UGLY", "DELICIOUS", "FUNNY", "GORILLA", "BIRD", "GIRAFFE", "TENT", "WATER", "SAND", "DOLPHINS", "TRASH", "ICECREAM", "PARK", "ZOO", "MOUNTAIN", "BEACH", "TREES"];
+        const gridSize = 12;
+        let grid = Array(gridSize).fill(null).map(() => Array(gridSize).fill(''));
+        let wordPlacements = [];
+        let selectedCells = [];
+        let isSelecting = false;
+        let gameWon = false;
+
+        function initGrid() {
+            words.forEach(word => placeWord(word));
+            for (let r = 0; r < gridSize; r++) {
+                for (let c = 0; c < gridSize; c++) {
+                    if (grid[r][c] === '') {
+                        grid[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+                    }
+                }
+            }
+        }
+
+        function placeWord(word) {
+            const directions = [{r:0, c:1}, {r:1, c:0}, {r:1, c:1}];
+            let placed = false;
+            let attempts = 0;
+            while (!placed && attempts < 100) {
+                let dir = directions[Math.floor(Math.random() * directions.length)];
+                let r = Math.floor(Math.random() * gridSize);
+                let c = Math.floor(Math.random() * gridSize);
+                if (r + dir.r * word.length <= gridSize && c + dir.c * word.length <= gridSize) {
+                    let canPlace = true;
+                    for (let i = 0; i < word.length; i++) {
+                        if (grid[r + dir.r * i][c + dir.c * i] !== '' && grid[r + dir.r * i][c + dir.c * i] !== word[i]) {
+                            canPlace = false; break;
+                        }
+                    }
+                    if (canPlace) {
+                        let cells = [];
+                        for (let i = 0; i < word.length; i++) {
+                            grid[r + dir.r * i][c + dir.c * i] = word[i];
+                            cells.push({r: r + dir.r * i, c: c + dir.c * i});
+                        }
+                        wordPlacements.push({word: word, cells: cells, found: false});
+                        placed = true;
+                    }
+                }
+                attempts++;
+            }
+        }
+
+        const gridElement = document.getElementById('grid');
+        for (let r = 0; r < gridSize; r++) {
+            for (let c = 0; c < gridSize; c++) {
+                const cell = document.createElement('div');
+                cell.classList.add('cell');
+                cell.textContent = grid[r][c];
+                cell.dataset.r = r; cell.dataset.c = c;
+                cell.addEventListener('mousedown', () => startSelection(cell));
+                cell.addEventListener('mouseenter', () => continueSelection(cell));
+                gridElement.appendChild(cell);
+            }
+        }
+
+        window.addEventListener('mouseup', endSelection);
+
+        function startSelection(cell) {
+            if (gameWon) return;
+            isSelecting = true;
+            selectedCells = [cell];
+            cell.classList.add('selected');
+        }
+
+        function continueSelection(cell) {
+            if (!isSelecting || gameWon || selectedCells.includes(cell)) return;
+            selectedCells.push(cell);
+            cell.classList.add('selected');
+        }
+
+        function endSelection() {
+            if (!isSelecting || gameWon) return;
+            isSelecting = false;
+            let selectedWord = selectedCells.map(c => c.textContent).join('');
+            let reversedWord = selectedWord.split('').reverse().join('');
+            
+            wordPlacements.forEach(wp => {
+                if (!wp.found && (wp.word === selectedWord || wp.word === reversedWord)) {
+                    wp.found = true;
+                    selectedCells.forEach(cell => cell.classList.add('found'));
+                    let wordEl = document.querySelector(`.word[data-word="${wp.word}"]`);
+                    if (wordEl) wordEl.classList.add('found');
+                }
+            });
+            
+            selectedCells.forEach(c => c.classList.remove('selected'));
+            selectedCells = [];
+            checkWinCondition();
+        }
+
+        function checkWinCondition() {
+            if (wordPlacements.every(wp => wp.found)) {
+                gameWon = true;
+                setTimeout(() => alert("You found all the words! Great job!"), 100);
+            }
+        }
+
+        function showAnswers() {
+            if (gameWon) return;
+            wordPlacements.forEach(wp => {
+                if (!wp.found) {
+                    wp.found = true;
+                    let wordEl = document.querySelector(`.word[data-word="${wp.word}"]`);
+                    if (wordEl) wordEl.classList.add('found');
+                    wp.cells.forEach(cellPos => {
+                        let cell = document.querySelector(`.cell[data-r="${cellPos.r}"][data-c="${cellPos.c}"]`);
+                        if (cell) {
+                            cell.classList.remove('selected');
+                            cell.classList.add('revealed');
+                        }
+                    });
+                }
+            });
+            gameWon = true;
+        }
+
+        const wordListElement = document.getElementById('wordList');
+        words.forEach(word => {
+            const wordElement = document.createElement('div');
+            wordElement.classList.add('word');
+            wordElement.textContent = word.replace('ICECREAM', 'ICE CREAM');
+            wordElement.dataset.word = word;
+            wordListElement.appendChild(wordElement);
+        });
+
+        initGrid();
+    </script>
+</body>
+</html>
+```Aquí tienes el código completo con la función "Show Answers" para revelar las palabras si los niños lo necesitan.
